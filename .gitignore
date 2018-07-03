@@ -4,3 +4,5 @@ node_modules
 docs
 *DS_Store
 .npmrc
+lib/*.js
+lib/endpoints
