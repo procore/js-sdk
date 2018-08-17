@@ -51,11 +51,34 @@ jobs:
       - run:
           name: Publish Package
           command: npm publish
+  blackduck:
+    docker:
+      - image: circleci/node:10.5-browsers
+    working_directory: ~/js-sdk
+    steps:
+      - checkout
+      - run: echo "deb http://http.debian.net/debian jessie-backports main" | sudo tee --append /etc/apt/sources.list.d/jessie-backports.list > /dev/null
+      - run: sudo apt update -qq
+      - run: sudo apt install -y --no-install-recommends -t jessie-backports openjdk-8-jdk
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          keys:
+            - yarn-packages-{{ checksum "yarn.lock" }}
+      - run:
+          name: Install Dependencies
+          command: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: yarn-packages-{{ checksum "yarn.lock" }}
+          paths:
+            - ~/.cache/yarn
+      - run: bash <(curl -s https://blackducksoftware.github.io/hub-detect/hub-detect.sh) --blackduck.hub.url="https://procore.blackducksoftware.com" --blackduck.hub.api.token=$BLACKDUCK_API_TOKEN || exit 0
 workflows:
   version: 2
   test_and_publish:
     jobs:
       - test
+      - blackduck
       - publish:
           requires:
             - test
@@ -63,3 +86,13 @@ workflows:
             branches:
               only:
                 - master
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - blackduck
